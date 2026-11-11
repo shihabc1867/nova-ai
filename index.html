@@ -152,9 +152,20 @@ body.logged-out .bottom-nav{display:none}
   <button class="back" onclick="openPage('home')">← Back to Home</button>
   <div class="panel">
     <h2>📂 File Learning</h2>
-    <p>PDF ও TXT ফাইল থেকে শেখানোর ব্যবস্থা পরবর্তী ধাপে তৈরি হবে।</p>
-    <input type="file" accept=".pdf,.txt">
-    <div class="notice">File Reader এখনো সংযুক্ত হয়নি।</div>
+    <p>TXT বা PDF ফাইল সিলেক্ট করো। NOVA লেখা পড়ে Knowledge Base-এ সেভ করবে।</p>
+    <input id="fileInput" type="file" accept=".pdf,.txt,.md,text/plain,application/pdf">
+    <div class="notice" id="fileStatus">একটা ফাইল বেছে নাও (সর্বোচ্চ ৫ MB)।</div>
+
+    <div id="fileForm" style="display:none">
+      <input id="fileTitle" type="text" placeholder="Knowledge Title">
+      <select id="fileCategory">
+        <option>General</option><option>Science</option><option>Mathematics</option>
+        <option>English</option><option>Technology</option><option>Education</option><option>History</option>
+      </select>
+      <textarea id="fileText" style="min-height:220px"></textarea>
+      <p id="fileInfo"></p>
+      <button class="action-btn" id="fileSaveBtn" onclick="saveFileKnowledge()">💾 Knowledge-এ সেভ করো</button>
+    </div>
   </div>
 </section>
 
@@ -164,7 +175,7 @@ body.logged-out .bottom-nav{display:none}
   <div class="panel">
     <h2>⚙️ Settings</h2>
     <p>NOVA AI</p>
-    <p>Version: 0.4.0</p>
+    <p>Version: 0.5.0</p>
     <p id="userEmail"></p>
     <button class="action-btn secondary" onclick="importLocal()">⬆️ পুরোনো Local ডেটা Cloud-এ আনো</button>
     <button class="action-btn delete-btn" onclick="logout()">Logout</button>
@@ -497,6 +508,136 @@ document.addEventListener('keydown', e => {
     sendChat();
   }
 });
+
+/* ---------- FILE LEARNING ---------- */
+const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const CHUNK_SIZE = 1500;
+let currentFileName = '';
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = () => reject(new Error('Script লোড হয়নি (ইন্টারনেট দেখো)'));
+    document.head.appendChild(el);
+  });
+}
+
+async function extractPdfText(file) {
+  if (!window.pdfjsLib) await loadScript(PDFJS_URL);
+  const workerCode = await (await fetch(PDFJS_WORKER_URL)).text();
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
+
+  const data = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const pages = Math.min(pdf.numPages, 100);
+  let out = '';
+  for (let i = 1; i <= pages; i++) {
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    out += tc.items.map(it => it.str + (it.hasEOL ? '\n' : ' ')).join('') + '\n\n';
+  }
+  return out;
+}
+
+function chunkText(text, size) {
+  const clean = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const sentences = clean.match(/[^।.!?\n]+[।.!?]?\s*/g) || [clean];
+  const chunks = [];
+  let cur = '';
+  sentences.forEach(sent => {
+    if ((cur + sent).length > size && cur) {
+      chunks.push(cur.trim());
+      cur = '';
+    }
+    cur += sent;
+    while (cur.length > size * 1.5) {      // খুব লম্বা বাক্য ভাঙা
+      chunks.push(cur.slice(0, size).trim());
+      cur = cur.slice(size);
+    }
+  });
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks;
+}
+
+function updateFileInfo() {
+  const text = document.getElementById('fileText').value;
+  const n = text.trim() ? chunkText(text, CHUNK_SIZE).length : 0;
+  document.getElementById('fileInfo').textContent =
+    'মোট ' + text.length + ' অক্ষর, ' + n + 'টি Knowledge হিসেবে সেভ হবে।';
+}
+
+async function handleFile(file) {
+  const status = document.getElementById('fileStatus');
+  const form = document.getElementById('fileForm');
+  form.style.display = 'none';
+  if (!file) return;
+
+  if (file.size > MAX_FILE_BYTES) {
+    status.textContent = 'ফাইল ৫ MB-এর বেশি। ছোট ফাইল দাও।';
+    return;
+  }
+
+  const name = file.name;
+  const isPdf = /\.pdf$/i.test(name) || file.type === 'application/pdf';
+  status.textContent = 'ফাইল পড়া হচ্ছে...';
+
+  try {
+    const text = isPdf ? await extractPdfText(file) : await file.text();
+    if (!text || text.trim().length < 10) {
+      status.textContent = 'ফাইলে পড়ার মতো লেখা পাওয়া যায়নি। স্ক্যান করা PDF (ছবি) হলে এটা পড়া যায় না।';
+      return;
+    }
+    currentFileName = name;
+    document.getElementById('fileTitle').value = name.replace(/\.[^.]+$/, '');
+    document.getElementById('fileText').value = text.trim();
+    updateFileInfo();
+    form.style.display = 'block';
+    status.textContent = '✅ পড়া হয়েছে। নিচের লেখা দেখে ঠিক করে সেভ করো। বাংলা PDF-এ অক্ষর এলোমেলো হলে TXT ব্যবহার করো।';
+  } catch (e) {
+    status.textContent = 'ফাইল পড়া যায়নি: ' + e.message;
+  }
+}
+
+async function saveFileKnowledge() {
+  const title = document.getElementById('fileTitle').value.trim();
+  const category = document.getElementById('fileCategory').value;
+  const text = document.getElementById('fileText').value;
+  if (!title) return showMessage('Title দাও।');
+
+  const chunks = chunkText(text, CHUNK_SIZE);
+  if (chunks.length === 0) return showMessage('সেভ করার মতো লেখা নেই।');
+  if (chunks.length > 200) return showMessage('লেখা অনেক বড় (২০০ অংশের বেশি)। ছোট করো।');
+
+  const rows = chunks.map((c, i) => ({
+    title: chunks.length > 1 ? title + ' (' + (i + 1) + '/' + chunks.length + ')' : title,
+    category,
+    content: c,
+    source: 'file:' + currentFileName
+  }));
+
+  setBusy('fileSaveBtn', true);
+  for (let i = 0; i < rows.length; i += 50) {
+    const { error } = await sb.from('nova_knowledge').insert(rows.slice(i, i + 50));
+    if (error) {
+      setBusy('fileSaveBtn', false);
+      return showMessage('Save ব্যর্থ: ' + error.message);
+    }
+  }
+  setBusy('fileSaveBtn', false);
+
+  showMessage(rows.length + 'টি Knowledge সেভ হয়েছে!');
+  document.getElementById('fileForm').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileStatus').textContent = 'আরেকটা ফাইল বেছে নাও (সর্বোচ্চ ৫ MB)।';
+}
+
+document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+document.getElementById('fileText').addEventListener('input', updateFileInfo);
 
 /* ---------- START ---------- */
 if (!sb || SUPABASE_URL.startsWith('YOUR_')) {
