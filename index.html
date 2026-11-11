@@ -142,6 +142,12 @@ body.logged-out .bottom-nav{display:none}
   <button class="back" onclick="openPage('home')">← Back to Home</button>
   <div class="panel">
     <h2>📚 Knowledge Base</h2>
+    <input id="kSearch" type="search" placeholder="🔍 খোঁজো (শিরোনাম বা লেখা)">
+    <select id="kCategory">
+      <option value="ALL">সব ক্যাটেগরি</option>
+      <option>General</option><option>Science</option><option>Mathematics</option>
+      <option>English</option><option>Technology</option><option>Education</option><option>History</option>
+    </select>
     <p id="knowledgeCount">Total Knowledge: 0</p>
     <div id="knowledgeList"></div>
   </div>
@@ -175,7 +181,7 @@ body.logged-out .bottom-nav{display:none}
   <div class="panel">
     <h2>⚙️ Settings</h2>
     <p>NOVA AI</p>
-    <p>Version: 0.5.0</p>
+    <p>Version: 0.6.0</p>
     <p id="userEmail"></p>
     <button class="action-btn secondary" onclick="importLocal()">⬆️ পুরোনো Local ডেটা Cloud-এ আনো</button>
     <button class="action-btn delete-btn" onclick="logout()">Logout</button>
@@ -292,24 +298,44 @@ async function saveKnowledge() {
   showMessage('Knowledge সফলভাবে Save হয়েছে!');
 }
 
+let allKnowledge = [];
+
 async function renderKnowledge() {
+  document.getElementById('knowledgeCount').textContent = 'লোড হচ্ছে...';
+  document.getElementById('knowledgeList').replaceChildren();
+  allKnowledge = await fetchKnowledge();
+  renderKnowledgeList();
+}
+
+function renderKnowledgeList() {
   const container = document.getElementById('knowledgeList');
   const count = document.getElementById('knowledgeCount');
+  const query = document.getElementById('kSearch').value.trim().toLowerCase();
+  const cat = document.getElementById('kCategory').value;
+  const words = query ? query.split(/\s+/) : [];
+
+  const list = allKnowledge.filter(item => {
+    if (cat !== 'ALL' && item.category !== cat) return false;
+    const hay = (item.title + ' ' + item.content + ' ' + item.category).toLowerCase();
+    return words.every(w => hay.includes(w));
+  });
+
   container.replaceChildren();
-  count.textContent = 'লোড হচ্ছে...';
+  count.textContent = (query || cat !== 'ALL')
+    ? 'পাওয়া গেছে: ' + list.length + ' / মোট ' + allKnowledge.length
+    : 'Total Knowledge: ' + allKnowledge.length;
 
-  const knowledge = await fetchKnowledge();
-  count.textContent = 'Total Knowledge: ' + knowledge.length;
-
-  if (knowledge.length === 0) {
+  if (list.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty';
-    empty.textContent = '📚 এখনো কোনো Knowledge সংরক্ষণ করা হয়নি। Teach NOVA থেকে নতুন তথ্য যোগ করো।';
+    empty.textContent = allKnowledge.length === 0
+      ? '📚 এখনো কোনো Knowledge সংরক্ষণ করা হয়নি। Teach NOVA থেকে নতুন তথ্য যোগ করো।'
+      : '🔍 কিছু পাওয়া যায়নি। অন্য শব্দ বা ক্যাটেগরি দিয়ে চেষ্টা করো।';
     container.appendChild(empty);
     return;
   }
 
-  knowledge.forEach(item => {
+  list.forEach(item => {
     const card = document.createElement('div');
     card.className = 'knowledge-card';
 
@@ -334,6 +360,9 @@ async function renderKnowledge() {
     container.appendChild(card);
   });
 }
+
+document.getElementById('kSearch').addEventListener('input', renderKnowledgeList);
+document.getElementById('kCategory').addEventListener('change', renderKnowledgeList);
 
 async function deleteKnowledge(id) {
   if (!confirm('এই Knowledge মুছে ফেলতে চাও?')) return;
