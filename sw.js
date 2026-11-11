@@ -1,4 +1,4 @@
-const CACHE = 'nova-ai-v2';
+const CACHE = 'nova-ai-v3';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -23,7 +23,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(req)
       .then(res => {
-        if (res.ok && (url.origin === location.origin || url.hostname === 'cdn.jsdelivr.net')) {
+        if (res.ok && (url.origin === location.origin || (url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'cdnjs.cloudflare.com'))) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(req, copy));
         }
