@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101827">
+<title>NOVA AI</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="NOVA AI">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#101827;color:#fff;font-family:Arial,sans-serif;min-height:100vh;padding-bottom:85px}
+header{padding:20px;display:flex;justify-content:space-between;align-items:center;background:#18263a;border-bottom:1px solid #293b53}
+.logo{font-size:25px;font-weight:bold;color:#55caff}
+.profile{background:#263b55;padding:10px;border-radius:50%}
+main{max-width:600px;margin:auto;padding:20px}
+.welcome{margin:15px 0 25px}
+.welcome h2{font-size:24px;margin-bottom:8px}
+.welcome p,.panel p{color:#b8c8dc;line-height:1.7;font-size:14px}
+.hero{background:linear-gradient(135deg,#075985,#173b70);padding:23px;border-radius:16px;margin-bottom:25px}
+.hero h2{margin-bottom:10px}
+.hero p{color:#d8eaff;font-size:14px;line-height:1.7}
+.section-title{font-size:18px;margin-bottom:15px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.card{background:#1c293b;padding:18px 14px;border:1px solid #30445e;border-radius:13px;min-height:125px;cursor:pointer}
+.card:active{background:#293e59}
+.emoji{font-size:27px;margin-bottom:12px}
+.card h3{font-size:15px;margin-bottom:7px}
+.card p{color:#aebdd0;font-size:12px;line-height:1.5}
+.page{display:none}
+.page.active{display:block}
+.panel{background:#1c293b;border:1px solid #30445e;border-radius:14px;padding:18px;margin-top:18px}
+.panel h2{margin-bottom:12px}
+input,textarea,select{width:100%;padding:13px;margin:12px 0;background:#101827;color:#fff;border:1px solid #40536c;border-radius:9px;font-size:15px}
+textarea{min-height:140px;resize:vertical}
+button{border:0;border-radius:9px;padding:13px;background:#1689d4;color:#fff;font-size:15px;cursor:pointer}
+button:disabled{opacity:.6}
+.action-btn{width:100%;margin-top:10px}
+.secondary{background:#35465e}
+.back{background:#35465e;margin-bottom:15px}
+.notice{background:#263b55;padding:13px;border-radius:9px;color:#c6d9ed;font-size:13px;line-height:1.6;margin-top:15px}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#18263a;border-top:1px solid #30445e;display:flex;justify-content:space-around;padding:12px 4px;z-index:10}
+.nav-btn{background:transparent;color:#aebdd0;font-size:11px;padding:5px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.nav-btn span{font-size:20px}
+.nav-btn.active{color:#55caff}
+#toast{position:fixed;bottom:85px;left:15px;right:15px;background:#263b55;color:#fff;padding:13px;border-radius:9px;text-align:center;display:none;z-index:20;overflow-wrap:anywhere}
+.knowledge-card{background:#263b55;padding:15px;border-radius:10px;margin-top:12px;overflow-wrap:anywhere}
+.knowledge-card h3{color:#55caff;margin-bottom:8px}
+.knowledge-card p{margin:7px 0;white-space:pre-wrap}
+.knowledge-card small{color:#aebdd0}
+.delete-btn{background:#a83242;margin-top:12px;font-size:13px;padding:9px 12px}
+.empty{text-align:center;padding:25px 10px;color:#aebdd0;line-height:1.7}
+body.logged-out .bottom-nav{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✦ NOVA AI</div>
+  <div class="profile">👤</div>
+</header>
+
+<main>
+
+<!-- AUTH -->
+<section id="auth" class="page">
+  <div class="panel">
+    <h2>🔐 Login</h2>
+    <p>তোমার ডেটা নিরাপদ রাখতে Login দরকার। শুধু তুমিই তোমার Knowledge দেখতে পারবে।</p>
+    <input id="authEmail" type="email" placeholder="Email" autocomplete="email">
+    <input id="authPassword" type="password" placeholder="Password (কমপক্ষে ৬ অক্ষর)" autocomplete="current-password">
+    <button class="action-btn" id="loginBtn" onclick="login()">Login</button>
+    <button class="action-btn secondary" id="signupBtn" onclick="signup()">নতুন Account খোলো</button>
+  </div>
+</section>
+
+<!-- HOME -->
+<section id="home" class="page">
+  <div class="welcome">
+    <h2>Welcome to NOVA 👋</h2>
+    <p>Your Personal Learning AI</p>
+  </div>
+  <div class="hero">
+    <h2>Let's build intelligence.</h2>
+    <p>Teach NOVA new knowledge, organize information and build your own intelligent assistant.</p>
+  </div>
+  <h3 class="section-title">Explore NOVA</h3>
+  <div class="grid">
+    <div class="card" onclick="openPage('chat')"><div class="emoji">💬</div><h3>AI Chat</h3><p>Talk with your AI assistant.</p></div>
+    <div class="card" onclick="openPage('teach')"><div class="emoji">🧠</div><h3>Teach NOVA</h3><p>Add new knowledge and notes.</p></div>
+    <div class="card" onclick="openPage('knowledge')"><div class="emoji">📚</div><h3>Knowledge Base</h3><p>Explore stored information.</p></div>
+    <div class="card" onclick="openPage('files')"><div class="emoji">📂</div><h3>File Learning</h3><p>Learn from PDF and TXT files.</p></div>
+    <div class="card" onclick="openPage('settings')"><div class="emoji">⚙️</div><h3>Settings</h3><p>Manage your NOVA app.</p></div>
+  </div>
+  <div class="notice">🚀 NOVA Development Status:<br>Cloud Storage (Supabase) Added</div>
+</section>
+
+<!-- CHAT -->
+<section id="chat" class="page">
+  <button class="back" onclick="openPage('home')">← Back to Home</button>
+  <div class="panel">
+    <h2>💬 NOVA AI Chat</h2>
+    <p>AI Engine এখনো সংযুক্ত করা হয়নি।</p>
+    <textarea id="chatInput" placeholder="Ask NOVA anything..."></textarea>
+    <button class="action-btn" onclick="showMessage('AI Engine এখনো সংযুক্ত হয়নি।')">Send Message</button>
+  </div>
+</section>
+
+<!-- TEACH -->
+<section id="teach" class="page">
+  <button class="back" onclick="openPage('home')">← Back to Home</button>
+  <div class="panel">
+    <h2>🧠 Teach NOVA</h2>
+    <p>এখানে নতুন তথ্য লিখে NOVA-এর Knowledge Base-এ সংরক্ষণ করতে পারবে।</p>
+    <input id="teachTitle" type="text" placeholder="Knowledge Title">
+    <select id="teachCategory">
+      <option>General</option><option>Science</option><option>Mathematics</option>
+      <option>English</option><option>Technology</option><option>Education</option><option>History</option>
+    </select>
+    <textarea id="teachContent" placeholder="Write something to teach NOVA..."></textarea>
+    <button class="action-btn" id="saveBtn" onclick="saveKnowledge()">💾 Save Knowledge</button>
+  </div>
+</section>
+
+<!-- KNOWLEDGE -->
+<section id="knowledge" class="page">
+  <button class="back" onclick="openPage('home')">← Back to Home</button>
+  <div class="panel">
+    <h2>📚 Knowledge Base</h2>
+    <p id="knowledgeCount">Total Knowledge: 0</p>
+    <div id="knowledgeList"></div>
+  </div>
+</section>
+
+<!-- FILES -->
+<section id="files" class="page">
+  <button class="back" onclick="openPage('home')">← Back to Home</button>
+  <div class="panel">
+    <h2>📂 File Learning</h2>
+    <p>PDF ও TXT ফাইল থেকে শেখানোর ব্যবস্থা পরবর্তী ধাপে তৈরি হবে।</p>
+    <input type="file" accept=".pdf,.txt">
+    <div class="notice">File Reader এখনো সংযুক্ত হয়নি।</div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings" class="page">
+  <button class="back" onclick="openPage('home')">← Back to Home</button>
+  <div class="panel">
+    <h2>⚙️ Settings</h2>
+    <p>NOVA AI</p>
+    <p>Version: 0.3.0</p>
+    <p id="userEmail"></p>
+    <button class="action-btn secondary" onclick="importLocal()">⬆️ পুরোনো Local ডেটা Cloud-এ আনো</button>
+    <button class="action-btn delete-btn" onclick="logout()">Logout</button>
+    <div class="notice">Personal AI Development Project<br>Storage: Supabase Cloud (RLS চালু)</div>
+  </div>
+</section>
+
+</main>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-page="home" onclick="openPage('home')"><span>⌂</span>Home</button>
+  <button class="nav-btn" data-page="chat" onclick="openPage('chat')"><span>💬</span>Chat</button>
+  <button class="nav-btn" data-page="teach" onclick="openPage('teach')"><span>🧠</span>Teach</button>
+  <button class="nav-btn" data-page="knowledge" onclick="openPage('knowledge')"><span>📚</span>Knowledge</button>
+  <button class="nav-btn" data-page="settings" onclick="openPage('settings')"><span>⚙️</span>Settings</button>
+</nav>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// ====== এখানে তোমার Supabase তথ্য বসাও (secret/service_role key কখনো নয়) ======
+const SUPABASE_URL = 'https://rmsoftgzxloiwqxnrylu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_U5FnFrlA82ncn6TMVQkrow_Qt5OMVrP';
+// =================================================================================
+
+const OLD_LOCAL_KEY = 'nova_knowledge';
+let sb = null;
+let currentUser = null;
+
+try {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+  console.error(e);
+}
+
+function showMessage(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.style.display = 'block';
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
+
+function setBusy(id, busy) {
+  const el = document.getElementById(id);
+  if (el) el.disabled = busy;
+}
+
+/* ---------- AUTH ---------- */
+async function login() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) return showMessage('Email ও Password দাও।');
+  setBusy('loginBtn', true);
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  setBusy('loginBtn', false);
+  if (error) showMessage('Login ব্যর্থ: ' + error.message);
+}
+
+async function signup() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || password.length < 6) return showMessage('সঠিক Email ও কমপক্ষে ৬ অক্ষরের Password দাও।');
+  setBusy('signupBtn', true);
+  const { data, error } = await sb.auth.signUp({ email, password });
+  setBusy('signupBtn', false);
+  if (error) return showMessage('Account খোলা যায়নি: ' + error.message);
+  if (!data.session) showMessage('Email-এ কনফার্মেশন লিংক পাঠানো হয়েছে। কনফার্ম করে Login করো।');
+}
+
+async function logout() {
+  await sb.auth.signOut();
+}
+
+function applyAuthState(session) {
+  currentUser = session ? session.user : null;
+  document.body.classList.toggle('logged-out', !currentUser);
+  document.getElementById('userEmail').textContent = currentUser ? 'Email: ' + currentUser.email : '';
+  if (currentUser) {
+    openPage('home');
+  } else {
+    openPage('auth');
+  }
+}
+
+/* ---------- DATA ---------- */
+async function fetchKnowledge() {
+  const { data, error } = await sb
+    .from('nova_knowledge')
+    .select('id,title,category,content,created_at')
+    .order('created_at', { ascending: false });
+  if (error) {
+    showMessage('ডেটা আনা যায়নি: ' + error.message);
+    return [];
+  }
+  return data;
+}
+
+async function saveKnowledge() {
+  const title = document.getElementById('teachTitle').value.trim();
+  const category = document.getElementById('teachCategory').value;
+  const content = document.getElementById('teachContent').value.trim();
+  if (!title || !content) return showMessage('Title এবং Content পূরণ করো।');
+
+  setBusy('saveBtn', true);
+  const { error } = await sb.from('nova_knowledge').insert({ title, category, content });
+  setBusy('saveBtn', false);
+
+  if (error) return showMessage('Save করা যায়নি: ' + error.message);
+
+  document.getElementById('teachTitle').value = '';
+  document.getElementById('teachContent').value = '';
+  showMessage('Knowledge সফলভাবে Save হয়েছে!');
+}
+
+async function renderKnowledge() {
+  const container = document.getElementById('knowledgeList');
+  const count = document.getElementById('knowledgeCount');
+  container.replaceChildren();
+  count.textContent = 'লোড হচ্ছে...';
+
+  const knowledge = await fetchKnowledge();
+  count.textContent = 'Total Knowledge: ' + knowledge.length;
+
+  if (knowledge.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = '📚 এখনো কোনো Knowledge সংরক্ষণ করা হয়নি। Teach NOVA থেকে নতুন তথ্য যোগ করো।';
+    container.appendChild(empty);
+    return;
+  }
+
+  knowledge.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'knowledge-card';
+
+    const title = document.createElement('h3');
+    title.textContent = item.title;
+
+    const category = document.createElement('p');
+    category.textContent = 'Category: ' + item.category;
+
+    const content = document.createElement('p');
+    content.textContent = item.content;
+
+    const date = document.createElement('small');
+    date.textContent = 'Saved: ' + new Date(item.created_at).toLocaleString();
+
+    const del = document.createElement('button');
+    del.className = 'delete-btn';
+    del.textContent = 'Delete';
+    del.addEventListener('click', () => deleteKnowledge(item.id));
+
+    card.append(title, category, content, date, del);
+    container.appendChild(card);
+  });
+}
+
+async function deleteKnowledge(id) {
+  if (!confirm('এই Knowledge মুছে ফেলতে চাও?')) return;
+  const { error } = await sb.from('nova_knowledge').delete().eq('id', id);
+  if (error) return showMessage('Delete করা যায়নি: ' + error.message);
+  showMessage('Knowledge মুছে ফেলা হয়েছে।');
+  renderKnowledge();
+}
+
+async function importLocal() {
+  let items = [];
+  try {
+    const raw = localStorage.getItem(OLD_LOCAL_KEY);
+    items = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    items = [];
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return showMessage('Local-এ কোনো পুরোনো ডেটা নেই।');
+  }
+  if (!confirm(items.length + 'টি Knowledge Cloud-এ আনা হবে। ঠিক আছে?')) return;
+
+  const rows = items
+    .filter(i => i && i.title && i.content)
+    .map(i => ({ title: i.title, category: i.category || 'General', content: i.content }));
+
+  const { error } = await sb.from('nova_knowledge').insert(rows);
+  if (error) return showMessage('Import ব্যর্থ: ' + error.message);
+
+  try { localStorage.removeItem(OLD_LOCAL_KEY); } catch (e) {}
+  showMessage(rows.length + 'টি Knowledge Cloud-এ আনা হয়েছে!');
+}
+
+/* ---------- NAVIGATION ---------- */
+function openPage(page) {
+  if (!currentUser) page = 'auth';
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById(page);
+  if (!target) return;
+  target.classList.add('active');
+
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.page === page);
+  });
+
+  if (page === 'knowledge') renderKnowledge();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- START ---------- */
+if (!sb || SUPABASE_URL.startsWith('YOUR_')) {
+  document.body.classList.add('logged-out');
+  openPage('auth');
+  showMessage('Supabase URL ও Key বসানো হয়নি।');
+} else {
+  sb.auth.onAuthStateChange((event, session) => {
+    // কলব্যাকের ভেতরে await না করে পরের টিকে পাঠানো হচ্ছে
+    setTimeout(() => applyAuthState(session), 0);
+  });
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
