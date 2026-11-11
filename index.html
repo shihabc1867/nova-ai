@@ -54,6 +54,15 @@ button:disabled{opacity:.6}
 .knowledge-card small{color:#aebdd0}
 .delete-btn{background:#a83242;margin-top:12px;font-size:13px;padding:9px 12px}
 .empty{text-align:center;padding:25px 10px;color:#aebdd0;line-height:1.7}
+
+#chatBox{margin-top:12px;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.msg{padding:11px 13px;border-radius:12px;font-size:14px;line-height:1.6;max-width:92%;overflow-wrap:anywhere;white-space:pre-wrap}
+.msg.user{background:#1689d4;align-self:flex-end}
+.msg.bot{background:#263b55;align-self:flex-start}
+.msg .src{display:block;margin-top:8px;padding-top:8px;border-top:1px solid #40536c}
+.msg .src b{color:#55caff}
+.msg .src small{color:#aebdd0}
+.chat-input{min-height:70px}
 body.logged-out .bottom-nav{display:none}
 </style>
 </head>
@@ -104,9 +113,11 @@ body.logged-out .bottom-nav{display:none}
   <button class="back" onclick="openPage('home')">← Back to Home</button>
   <div class="panel">
     <h2>💬 NOVA AI Chat</h2>
-    <p>AI Engine এখনো সংযুক্ত করা হয়নি।</p>
-    <textarea id="chatInput" placeholder="Ask NOVA anything..."></textarea>
-    <button class="action-btn" onclick="showMessage('AI Engine এখনো সংযুক্ত হয়নি।')">Send Message</button>
+    <p id="chatStatus">Knowledge লোড হচ্ছে...</p>
+    <div id="chatBox"></div>
+    <textarea id="chatInput" class="chat-input" placeholder="NOVA-কে প্রশ্ন করো..."></textarea>
+    <button class="action-btn" id="sendBtn" onclick="sendChat()">Send Message</button>
+    <button class="action-btn secondary" onclick="clearChat()">Chat মুছো</button>
   </div>
 </section>
 
@@ -153,7 +164,7 @@ body.logged-out .bottom-nav{display:none}
   <div class="panel">
     <h2>⚙️ Settings</h2>
     <p>NOVA AI</p>
-    <p>Version: 0.3.0</p>
+    <p>Version: 0.4.0</p>
     <p id="userEmail"></p>
     <button class="action-btn secondary" onclick="importLocal()">⬆️ পুরোনো Local ডেটা Cloud-এ আনো</button>
     <button class="action-btn delete-btn" onclick="logout()">Logout</button>
@@ -359,8 +370,133 @@ function openPage(page) {
   });
 
   if (page === 'knowledge') renderKnowledge();
+  if (page === 'chat') loadChatKnowledge();
   window.scrollTo(0, 0);
 }
+
+/* ---------- CHAT (Knowledge Search) ---------- */
+let chatKnowledge = [];
+const STOP = new Set(['কি','কী','কে','কেন','কোন','কোথায়','কিভাবে','কীভাবে','এবং','ও','এর','এই','সেই','আমি','তুমি','আমার','তোমার','হয়','হয়','করে','করা','আছে','জন্য','থেকে','the','is','are','a','an','of','to','in','and','what','how','why','who','when','where','do','does','me','tell','about']);
+
+function tokenize(text) {
+  return (text.toLowerCase().match(/[\p{L}\p{M}\p{N}]+/gu) || [])
+    .filter(w => w.length >= 2 && !STOP.has(w));
+}
+
+function tokenHits(token, text) {
+  let hits = text.includes(token) ? 1 : 0;
+  if (!hits && token.length > 4) {
+    // বাংলা বিভক্তি (যেমন -এর, -কে) বাদ দিয়ে মেলানোর চেষ্টা
+    for (let cut = 1; cut <= 2 && !hits; cut++) {
+      if (token.length - cut >= 3 && text.includes(token.slice(0, -cut))) hits = 0.7;
+    }
+  }
+  return hits;
+}
+
+function scoreItem(tokens, item) {
+  const title = item.title.toLowerCase();
+  const content = item.content.toLowerCase();
+  const cat = (item.category || '').toLowerCase();
+  let score = 0;
+  tokens.forEach(t => {
+    score += tokenHits(t, title) * 3;
+    score += tokenHits(t, content) * 1;
+    score += tokenHits(t, cat) * 1;
+  });
+  return score;
+}
+
+function bestSnippet(tokens, content) {
+  const parts = content.split(/[।.!?\n]+/).map(x => x.trim()).filter(Boolean);
+  if (parts.length === 0) return content.slice(0, 300);
+  const ranked = parts
+    .map((sent, i) => ({
+      sent, i,
+      sc: tokens.reduce((n, t) => n + tokenHits(t, sent.toLowerCase()), 0)
+    }))
+    .sort((a, b) => b.sc - a.sc)
+    .slice(0, 2)
+    .sort((a, b) => a.i - b.i)
+    .map(x => x.sent);
+  let out = ranked.join('। ');
+  if (out.length > 350) out = out.slice(0, 350) + '...';
+  return out;
+}
+
+function addMsg(kind, text, sources) {
+  const box = document.getElementById('chatBox');
+  const m = document.createElement('div');
+  m.className = 'msg ' + kind;
+  m.appendChild(document.createTextNode(text));
+  (sources || []).forEach(src => {
+    const d = document.createElement('span');
+    d.className = 'src';
+    const b = document.createElement('b');
+    b.textContent = src.title;
+    const sm = document.createElement('small');
+    sm.textContent = ' (' + src.category + ')';
+    const body = document.createElement('div');
+    body.textContent = src.snippet;
+    d.append(b, sm, body);
+    m.appendChild(d);
+  });
+  box.appendChild(m);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function loadChatKnowledge() {
+  const status = document.getElementById('chatStatus');
+  status.textContent = 'Knowledge লোড হচ্ছে...';
+  chatKnowledge = await fetchKnowledge();
+  status.textContent = 'NOVA ' + chatKnowledge.length + 'টি Knowledge থেকে উত্তর খোঁজে।';
+  if (document.getElementById('chatBox').children.length === 0) {
+    addMsg('bot', chatKnowledge.length === 0
+      ? 'হ্যালো! আমি এখনো কিছু শিখিনি। আগে Teach NOVA থেকে কিছু শেখাও।'
+      : 'হ্যালো! আমি যা শিখেছি তা নিয়ে প্রশ্ন করো।');
+  }
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  addMsg('user', q);
+
+  const tokens = tokenize(q);
+  if (tokens.length === 0) {
+    return addMsg('bot', 'প্রশ্নটা আরেকটু স্পষ্ট করে লেখো।');
+  }
+
+  const results = chatKnowledge
+    .map(item => ({ item, score: scoreItem(tokens, item) }))
+    .filter(r => r.score >= 1)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (results.length === 0) {
+    return addMsg('bot', 'এ বিষয়ে আমি এখনো শিখিনি। Teach NOVA থেকে তথ্য যোগ করলে আমি উত্তর দিতে পারব।');
+  }
+
+  addMsg('bot', 'আমার Knowledge থেকে এগুলো পেয়েছি:', results.map(r => ({
+    title: r.item.title,
+    category: r.item.category,
+    snippet: bestSnippet(tokens, r.item.content)
+  })));
+}
+
+function clearChat() {
+  document.getElementById('chatBox').replaceChildren();
+  loadChatKnowledge();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target && e.target.id === 'chatInput' && e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+});
 
 /* ---------- START ---------- */
 if (!sb || SUPABASE_URL.startsWith('YOUR_')) {
